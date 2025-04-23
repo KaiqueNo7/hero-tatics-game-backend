@@ -1,7 +1,7 @@
 import express from 'express';
 import { SOCKET_EVENTS } from './events.js';
 import http from 'http';
-import Player from '../src/core/player.js';
+import Player from './player.js';
 import { Server } from 'socket.io';
 
 const app = express();
