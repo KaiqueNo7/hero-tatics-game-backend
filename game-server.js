@@ -5,6 +5,11 @@ import Player from './player.js';
 import { Server } from 'socket.io';
 
 const app = express();
+
+app.get('/', (req, res) => {
+  res.send('Servidor do Hero Tactics está no ar! 🎯');
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
