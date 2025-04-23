@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: tatics-game-server
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    rootDir: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+    autoDeploy: true

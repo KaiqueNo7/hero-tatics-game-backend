@@ -1,0 +1,13 @@
+{
+  "name": "tatics-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "game-server.js",
+  "scripts": {
+    "start": "node game-server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}

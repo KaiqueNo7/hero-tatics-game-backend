@@ -1,0 +1,15 @@
+export const SOCKET_EVENTS = {
+  FINDING_MATCH: 'finding_match',
+  HERO_SELECTED: 'hero_selected',
+  MATCH_FOUND: 'match_found',
+  SELECTION_COMPLETE: 'selection_complete',
+  START_GAME: 'start_game',
+  NEXT_TURN: 'next_turn',
+  NEXT_TURN_REQUEST: 'next_turn_request',
+  GAME_FINISHED: 'game:finished',
+  HERO_ATTACKED: 'hero:attacked',
+  HERO_MOVED: 'hero_moved',
+  HERO_MOVE_REQUEST: 'hero_move_request',
+  HERO_ATTACKED: 'hero:attacked',
+  HERO_ATTACK_REQUEST: 'hero_attack_request',
+};
