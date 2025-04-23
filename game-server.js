@@ -9,7 +9,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     methods: ['GET', 'POST'],
-    origin: '*'
+    origin: ['https://kaiquenocetti.com', 'http://localhost:5173']
   }
 });
 
