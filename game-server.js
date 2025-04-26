@@ -48,8 +48,8 @@ io.on('connection', (socket) => {
       playerSocket2.join(roomId);
 
       matches[roomId] = {
-        player1: new Player('Player 1', [], playerSocket1.id, 1),
-        player2: new Player('Player 2', [], playerSocket2.id, 2),
+        player1: new Player(playerSocket1.playerName, [], playerSocket1.id, 1),
+        player2: new Player(playerSocket2.playerName, [], playerSocket2.id, 2),
         selectedHeroes: []
       };
 
