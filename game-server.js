@@ -27,8 +27,16 @@ const matches = {};
 const goodLuckCache = new Map();
 
 io.on('connection', (socket) => {
-  socket.on(SOCKET_EVENTS.FINDING_MATCH, () => {
+  socket.on(SOCKET_EVENTS.QUIT_QUEUE, () => {
+    console.log(`Jogador ${socket.id} saiu da fila`);
+    const index = waitingQueue.findIndex(s => s.id === socket.id);
+    if (index !== -1) waitingQueue.splice(index, 1);
+  });
+
+  socket.on(SOCKET_EVENTS.FINDING_MATCH, ({ name }) => {
     console.log(`Jogador ${socket.id} entrou na fila`);
+    socket.playerName = name ? name : `Jogador_${socket.id}`;
+
     waitingQueue.push(socket);
 
     if (waitingQueue.length >= 2) {
