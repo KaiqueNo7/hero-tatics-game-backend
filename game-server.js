@@ -2,8 +2,6 @@ import express from 'express';
 import { SOCKET_EVENTS } from './events.js';
 import http from 'http';
 import { Server } from 'socket.io';
-import { v4 as uuidv4 } from 'uuid';
-import { match } from 'assert';
 
 const app = express();
 
@@ -14,7 +12,7 @@ app.get('/', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: ['https://kaiquenocetti.com', 'http://localhost:5173'],
     methods: ['GET', 'POST']
   },
   perMessageDeflate: {
@@ -120,7 +118,7 @@ io.on('connection', (socket) => {
   
       if (!sock1 || !sock2) return;
   
-      const roomId = uuidv4();
+      const roomId = `room_${playerId1}_${playerId2}`;
       sock1.join(roomId);
       sock2.join(roomId);
   

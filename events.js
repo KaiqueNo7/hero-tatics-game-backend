@@ -2,6 +2,7 @@ export const SOCKET_EVENTS = {
   FINDING_MATCH: 'finding_match',
   HERO_SELECTED: 'hero_selected',
   MATCH_FOUND: 'match_found',
+  QUIT_QUEUE: 'quit_queue',
   SELECTION_COMPLETE: 'selection_complete',
   START_GAME: 'start_game',
   NEXT_TURN: 'next_turn',
@@ -12,4 +13,12 @@ export const SOCKET_EVENTS = {
   HERO_MOVE_REQUEST: 'hero_move_request',
   HERO_ATTACKED: 'hero:attacked',
   HERO_ATTACK_REQUEST: 'hero_attack_request',
+  HERO_COUNTER_ATTACK: 'hero:counter-attack',
+  HERO_COUNTER_ATTACK_REQUEST: 'hero_counter_attack_request',
+  UPDATE_GAME_STATE: 'update_game_state',
+  SYNC_GAME_STATE: 'sync_game_state',
+  RECONNECTING_PLAYER: 'reconnecting_player',
+  TURN_TIMER_TICK: 'turn_timer_tick',
+  TURN_TIMEOUT: 'turn_time_out',
+  RETURN_TO_MATCH_ONLINE: 'return_to_match_online'
 };
