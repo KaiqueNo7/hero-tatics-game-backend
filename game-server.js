@@ -28,7 +28,7 @@ const matches = new Map();
 const goodLuckCache = new Map();
 const disconnectedPlayers = new Map();
 const playerIdToSocketId = new Map();
-const TURN_DURATION = 60;
+const TURN_DURATION = 90;
 const turnIntervals = new Map();
 
 function getMatch(roomId) {
@@ -126,7 +126,9 @@ io.on('connection', (socket) => {
         player1: { ...p1, id: playerId1 },
         player2: { ...p2, id: playerId2 },
         selectedHeroes: [],
-        status: 'selecting_heroes',
+        gameState: {
+          status: 'selecting_heroes',
+        }
       };
   
       matches.set(roomId, match);
@@ -204,8 +206,8 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on(SOCKET_EVENTS.GAME_FINISHED, ({ roomId, winnerId }) => {
-    io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, { winnerId });
+  socket.on(SOCKET_EVENTS.GAME_FINISHED_REQUEST, ({ roomId, winner }) => {
+    io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, { winner: winner });
     io.socketsLeave(roomId);
     matches.delete(roomId);
     goodLuckCache.delete(roomId);
@@ -241,6 +243,11 @@ io.on('connection', (socket) => {
   
       const isPlayer1 = match.player1.id === playerId;
       const isPlayer2 = match.player2.id === playerId;
+
+      if(match.gameState.status == 'selecting_heroes'){
+        io.to(roomId).emit(SOCKET_EVENTS.RETURN_TO_MATCH_ONLINE);
+        return;
+      }
   
       if (isPlayer1 || isPlayer2) {
         const opponentId = isPlayer1 ? match.player2.id : match.player1.id;
@@ -259,11 +266,10 @@ io.on('connection', (socket) => {
           return;
         }
   
-        if (!match.gameState) continue;
-        if (match.gameState.status === 'finished') {
+        if (!match.gameState || match.gameState.status === 'finished') {
           clearTurnTimer(roomId);
           return;
-        }
+        }        
   
         const timeout = setTimeout(() => {
           const winnerId = opponentId;
