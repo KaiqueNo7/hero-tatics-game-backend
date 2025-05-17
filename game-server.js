@@ -251,13 +251,13 @@ io.on('connection', (socket) => {
   
       if (isPlayer1 || isPlayer2) {
         const opponentId = isPlayer1 ? match.player2.id : match.player1.id;
-        const opponentSocketId = playerIdToSocketId.get(opponentId);
-        const opponentSocket = io.sockets.sockets.get(opponentSocketId);
   
         const opponentDisconnected = disconnectedPlayers.has(opponentId);
   
         if (opponentDisconnected) {
-          io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, { winnerId: null });
+          const winner = isPlayer1 ? match.gameState.players[1] : match.gameState.players[0];
+
+          io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, { winner: winner });
           io.socketsLeave(roomId);
           matches.delete(roomId);
           clearTurnTimer(roomId);
@@ -272,8 +272,9 @@ io.on('connection', (socket) => {
         }        
   
         const timeout = setTimeout(() => {
-          const winnerId = opponentId;
-          io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, { winnerId });
+          const winner = isPlayer1 ? match.gameState.players[1] : match.gameState.players[0];
+
+          io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, { winner: winner });
           io.socketsLeave(roomId);
           matches.delete(roomId);
           clearTurnTimer(roomId);
