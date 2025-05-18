@@ -22,5 +22,7 @@ export const SOCKET_EVENTS = {
   TURN_TIMEOUT: 'turn_time_out',
   RETURN_TO_MATCH_ONLINE: 'return_to_match_online',
   HERO_SELECTION_TIMEOUT: 'hero_selection_timeout',
-  HERO_SELECTION_TICK: 'hero_selection_tick'
+  HERO_SELECTION_TICK: 'hero_selection_tick',
+  PLAYER_DISCONNECTED: 'player_disconnected',
+  RECONNECTING_PLAYER_SUCCESS: 'RECONNECTING_PLAYER_SUCCESS'
 };

@@ -298,8 +298,11 @@ io.on('connection', (socket) => {
   
       if (isPlayer1 || isPlayer2) {
         const opponentId = isPlayer1 ? match.player2.id : match.player1.id;
-  
         const opponentDisconnected = disconnectedPlayers.has(opponentId);
+
+        if(match.gameState.status == 'in_progress'){
+          io.to(roomId).emit(SOCKET_EVENTS.PLAYER_DISCONNECTED);
+        }
   
         if (opponentDisconnected) {
           const winner = isPlayer1 ? match.gameState.players[1] : match.gameState.players[0];
@@ -378,7 +381,8 @@ io.on('connection', (socket) => {
         gameState: match.gameState,
       });
     }
-  
+    
+    io.to(roomId).emit(SOCKET_EVENTS.RECONNECTING_PLAYER_SUCCESS);
     console.log(`Jogador ${playerId} reconectado na sala ${roomId}`);
   });  
 });
