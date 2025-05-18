@@ -4,15 +4,10 @@ import http from 'http';
 import { Server } from 'socket.io';
 
 const app = express();
-
-app.get('/', (req, res) => {
-  res.send('Servidor do Hero Tactics está no ar! 🎯');
-});
-
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ['https://kaiquenocetti.com', 'http://localhost:5173'],
+    origin: ['https://kaiquenocetti.com', 'http://localhost:5173/hero-tatics-game/'],
     methods: ['GET', 'POST']
   },
   perMessageDeflate: {
@@ -30,6 +25,9 @@ const disconnectedPlayers = new Map();
 const playerIdToSocketId = new Map();
 const TURN_DURATION = 90;
 const turnIntervals = new Map();
+const SELECTION_STEP_DURATION = 20;
+const heroSelectionIntervals = new Map();
+
 
 function getMatch(roomId) {
   return matches.get(roomId);
@@ -69,6 +67,43 @@ function clearTurnTimer(roomId) {
   }
 }
 
+function startHeroSelectionTimer(roomId, currentPlayerId, currentStep) {
+  if (heroSelectionIntervals.has(roomId)) {
+    clearInterval(heroSelectionIntervals.get(roomId));
+    heroSelectionIntervals.delete(roomId);
+  }
+
+  let timeLeft = SELECTION_STEP_DURATION;
+
+  const interval = setInterval(() => {
+    timeLeft--;
+
+    io.to(roomId).emit(SOCKET_EVENTS.HERO_SELECTION_TICK, { timeLeft });
+
+    if (timeLeft <= 0) {
+      clearInterval(interval);
+      clearHeroSelectionTimer(roomId);
+      heroSelectionIntervals.delete(roomId);
+
+      io.to(roomId).emit(SOCKET_EVENTS.HERO_SELECTION_TIMEOUT, {
+        playerId: currentPlayerId,
+        step: currentStep,
+        roomId
+      });
+    }
+  }, 1000);
+
+  heroSelectionIntervals.set(roomId, interval);
+}
+
+function clearHeroSelectionTimer(roomId) {
+  const interval = heroSelectionIntervals.get(roomId);
+  if (interval) {
+    clearInterval(interval);
+    heroSelectionIntervals.delete(roomId);
+  }
+}
+
 io.on('connection', (socket) => {
   socket.on(SOCKET_EVENTS.QUIT_QUEUE, () => {
     if (socket.playerId) {
@@ -87,7 +122,7 @@ io.on('connection', (socket) => {
         waitingQueue.delete(player.id);
         socket.emit(SOCKET_EVENTS.QUIT_QUEUE);
       }
-    }, 10000);
+    }, 30000);
 
     socket.playerId = player.id;
 
@@ -137,6 +172,8 @@ io.on('connection', (socket) => {
         players: [match.player1, match.player2],
         roomId
       });
+
+      startHeroSelectionTimer(roomId, match.player1, 0);
     }
   });
 
@@ -144,6 +181,11 @@ io.on('connection', (socket) => {
     const match = getMatch(roomId);
     if (!match) return;
     socket.to(roomId).emit(SOCKET_EVENTS.HERO_SELECTED, { heroName, player, step });
+
+    const nextPlayer = player === 1 ? 2 : 1;
+
+    clearHeroSelectionTimer(roomId);
+    startHeroSelectionTimer(roomId, nextPlayer, step);
   });
 
   socket.on(SOCKET_EVENTS.SELECTION_COMPLETE, ({ roomId, players, heroes }) => {
@@ -246,6 +288,8 @@ io.on('connection', (socket) => {
 
       if(match.gameState.status == 'selecting_heroes'){
         io.to(roomId).emit(SOCKET_EVENTS.RETURN_TO_MATCH_ONLINE);
+        io.socketsLeave(roomId);
+        matches.delete(roomId);
         return;
       }
   
@@ -291,7 +335,7 @@ io.on('connection', (socket) => {
       }
     }
   });  
-  
+
   socket.on(SOCKET_EVENTS.RECONNECTING_PLAYER, ({ playerId }) => {
     const data = disconnectedPlayers.get(playerId);
   
@@ -325,7 +369,7 @@ io.on('connection', (socket) => {
   
     if (match.gameState) {
       socket.emit(SOCKET_EVENTS.SYNC_GAME_STATE, {
-        gameState: match.gameState
+        gameState: match.gameState,
       });
     }
   
