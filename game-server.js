@@ -1,8 +1,13 @@
 import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import playerRoutes from './routes/playerRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 import { SOCKET_EVENTS } from './events.js';
 import http from 'http';
 import { Server } from 'socket.io';
 
+const PORT = process.env.PORT || 3000;
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -15,7 +20,13 @@ const io = new Server(server, {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+dotenv.config();
+
+app.use(cors());
+app.use(express.json());
+
+app.use('/api', [authRoutes, playerRoutes]);
+
 server.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
 
 const waitingQueue = new Map();
@@ -61,6 +72,7 @@ function startTurnTimer(roomId, playerId) {
 
 function clearTurnTimer(roomId) {
   const interval = turnIntervals.get(roomId);
+  
   if (interval) {
     clearInterval(interval);
     turnIntervals.delete(roomId);
@@ -97,9 +109,11 @@ function startHeroSelectionTimer(roomId, currentPlayerId, currentStep) {
 }
 
 function clearHeroSelectionTimer(roomId) {
-  const interval = heroSelectionIntervals.get(roomId);
-  if (interval) {
-    clearInterval(interval);
+  const timer = heroSelectionIntervals.get(roomId);
+  if (!timer) return;
+
+  if (timer) {
+    clearInterval(timer);
     heroSelectionIntervals.delete(roomId);
   }
 }
@@ -178,7 +192,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on(SOCKET_EVENTS.HERO_SELECTED, ({ roomId, heroName, player, step }) => {
-    const match = getMatch(roomId);
+    if (!roomId || !heroName) return;
+
+    const match = matches.get(roomId);
+    if (!match || match.status !== 'selecting') return;
+    
     if (!match) return;
     socket.to(roomId).emit(SOCKET_EVENTS.HERO_SELECTED, { heroName, player, step });
 
