@@ -196,6 +196,7 @@ io.on('connection', (socket) => {
     const startedPlayerId = startedPlayerIndex === 1 ? match.player1.id : match.player2.id;
 
     startTurnTimer(roomId, startedPlayerId);
+    clearHeroSelectionTimer(roomId);
 
     io.to(roomId).emit(SOCKET_EVENTS.START_GAME, {
        roomId, startedPlayerId
