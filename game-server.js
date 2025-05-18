@@ -291,6 +291,7 @@ io.on('connection', (socket) => {
         io.to(roomId).emit(SOCKET_EVENTS.RETURN_TO_MATCH_ONLINE);
         io.socketsLeave(roomId);
         matches.delete(roomId);
+        clearHeroSelectionTimer(roomId);
         return;
       }
   
