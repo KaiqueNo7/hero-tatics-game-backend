@@ -1,5 +1,6 @@
 export const SOCKET_EVENTS = {
   FINDING_MATCH: 'finding_match',
+  HERO_SELECTED_REQUEST: 'hero_selected_request',
   HERO_SELECTED: 'hero_selected',
   MATCH_FOUND: 'match_found',
   QUIT_QUEUE: 'quit_queue',

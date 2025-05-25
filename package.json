@@ -1,5 +1,5 @@
 {
-  "name": "tatics-backend",
+  "name": "tactics-backend",
   "version": "1.0.0",
   "type": "module",
   "main": "game-server.js",
@@ -8,8 +8,10 @@
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.14.1",
     "socket.io": "^4.8.1"
   }
 }
