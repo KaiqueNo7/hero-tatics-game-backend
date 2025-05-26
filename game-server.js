@@ -32,7 +32,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'segredo_forte';
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
+  cors: { origin: 'kaiquenocetti.com', methods: ['GET', 'POST'] },
   perMessageDeflate: { threshold: 1024 }
 });
 
