@@ -257,7 +257,14 @@ io.on('connection', (socket) => {
   });
 });
 
-app.use(cors());
+const allowedOrigins = ['https://kaiquenocetti.com'];
+
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true
+}));
+
 app.use(express.json());
 app.use('/api', [routes]);
 
