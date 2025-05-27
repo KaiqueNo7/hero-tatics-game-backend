@@ -17,24 +17,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { HERO_DATA } from './models/heroes.js';
-import { db } from './models/db.js';
-
 dotenv.config();
-
-async function startServer() {
-  try {
-    const conn = await db.getConnection();
-    console.log('✅ Conexão com o banco estabelecida.');
-    conn.release();
-
-    server.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
-  } catch (err) {
-    console.error('❌ Erro ao conectar no banco:', err);
-    process.exit(1);
-  }
-}
-
-startServer();
 
 const matches = new Map();
 const waitingQueue = new Map();
