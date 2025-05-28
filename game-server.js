@@ -161,6 +161,15 @@ function createGameListeners(socket, io, removeSelf) {
       goodLuckCache.delete(roomId);
       clearTurnTimer(roomId);
       removeSelf();
+    },
+    ['CHECK_GOOD_LUCK']: ({ roomId }) => {
+      if (goodLuckCache.has(roomId)) {
+        socket.emit('GOOD_LUCK_RESULT', goodLuckCache.get(roomId));
+      } else {
+        const result = Math.random() < 0.5;
+        goodLuckCache.set(roomId, result);    
+        io.to(roomId).emit('GOOD_LUCK_RESULT', result);
+      }
     }
   };
 }
