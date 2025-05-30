@@ -1,3 +1,4 @@
 .env
-/migrations
+.env.production
+.env.development
 /node_modules

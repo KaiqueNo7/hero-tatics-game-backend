@@ -1,0 +1,16 @@
+CREATE TABLE players (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  password VARCHAR(100) NOT NULL,
+  email VARCHAR(100) UNIQUE,
+  avatar VARCHAR(255),
+  xp INT DEFAULT 0,
+  date_of_birth DATE,
+  wins INT DEFAULT 0,
+  losses INT DEFAULT 0,
+  coins INT DEFAULT 500,
+  level INT DEFAULT 1,
+  status ENUM('active', 'inactive', 'banned') DEFAULT 'active',
+  last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
