@@ -1,6 +1,6 @@
 import express from 'express';
 import { register, login } from '../controllers/authController.js';
-import { me, updatePlayerStats } from '../controllers/playerController.js';
+import { me } from '../controllers/playerController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { HERO_DATA } from "../models/heroes.js";
 
@@ -22,7 +22,6 @@ router.get('/validate-token', authenticateToken, (req, res) => {
 });
 
 router.get('/me', authenticateToken, me);
-router.post('/update-stats', authenticateToken, updatePlayerStats);
 
 router.get('/heroes', (req, res) => {
   res.json(HERO_DATA);

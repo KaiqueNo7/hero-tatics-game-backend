@@ -5,8 +5,8 @@ export const HERO_DATA = [
     frame: 2,
     stats: { attack: 3, hp: 17, ability: null },
     abilities: [
-      { key: 'firstPunch', name: 'First Punch', description: 'Descrição do soco' },
-      { key: 'autoDefense', name: 'Auto Defense', description: 'Descrição da defesa' }
+      { key: 'firstPunch', name: 'First Punch', description: 'O primeiro ataque do herói na partida causa +2 de dano.' },
+      { key: 'autoDefense', name: 'Auto Defense', description: 'Recebe 1 ponto a menos de dano ao sofrer contra-ataques.' }
     ]
   },
   {
@@ -15,7 +15,7 @@ export const HERO_DATA = [
     frame: 1,
     stats: { attack: 1, hp: 19, ability: null },
     abilities: [
-      { key: 'poisonAttack', name: 'Poison Attack', description: 'Envenena o alvo' }
+      { key: 'poisonAttack', name: 'Poison Attack', description: 'Envenena o inimigo por 3 turnos causando 1 de dano por turno. Causa  +2 de dano contra inimigos já envenenados.' }
     ]
   },
   {
@@ -24,7 +24,7 @@ export const HERO_DATA = [
     frame: 0,
     stats: { attack: 1, hp: 18, ability: 'Sprint' },
     abilities: [
-      { key: 'goodLuck', name: 'Good Luck', description: 'Aumenta chance de crítico' }
+      { key: 'goodLuck', name: 'Good Luck', description: 'Tem 50% de chance de ganhar +1 de ataque ao mudar o turno.' }
     ]
   },
   {
@@ -33,7 +33,7 @@ export const HERO_DATA = [
     frame: 4,
     stats: { attack: 3, hp: 16, ability: null },
     abilities: [
-      { key: 'beyondFront', name: 'Beyond Front', description: 'Avança além do inimigo' }
+      { key: 'beyondFront', name: 'Beyond Front', description: 'Ataca até 3 casas em linha reta na direção do ataque, se estiverem ocupadas por inimigos.' }
     ]
   },
   {
@@ -42,8 +42,8 @@ export const HERO_DATA = [
     frame: 5,
     stats: { attack: 2, hp: 18, ability: 'Ranged' },
     abilities: [
-      { key: 'brokenDefense', name: 'Broken Defense', description: 'Ignora armadura' },
-      { key: 'trustInTeam', name: 'Trust in Team', description: 'Buffa aliados' }
+      { key: 'brokenDefense', name: 'Broken Defense', description: 'Causa +2 de dano contra inimigos com o status "Taunt".' },
+      { key: 'trustInTeam', name: 'Trust in Team', description: 'Recebe +1 de ataque ao ter aliados em casas adjacentes.' }
     ]
   },
   {
@@ -52,7 +52,35 @@ export const HERO_DATA = [
     frame: 3,
     stats: { attack: 1, hp: 33, ability: 'Taunt' },
     abilities: [
-      { key: 'absorbRoots', name: 'Absorb Roots', description: 'Puxa vida do chão' }
+      { key: 'absorbRoots', name: 'Absorb Roots', description: 'Recupera vida equivalente ao dano causado.' }
+    ]
+  },
+  {
+    id: 7,
+    name: 'Noctin',
+    frame: 8,
+    stats: { attack: 3, hp: 14, ability: 'Sprint' },
+    abilities: [
+      { key: 'aloneIsBetter', name: 'alone Is Better', description: 'Se atacar um inimigo isolado causa o dobro de dano.' }
+    ]
+  },
+  {
+    id: 8,
+    name: 'Elaria',
+    frame: 7,
+    stats: { attack: 1, hp: 18, ability: 'Ranged' },
+    abilities: [
+      { key: 'health', name: 'Health', description: 'Cura aliados próximos. (+1)' },
+      { key: 'clean', name: 'Clean', description: 'Remove os efeitos negativos de aliados próximos.' }
+    ]
+  },
+  {
+    id: 9,
+    name: 'Bramm',
+    frame: 6,
+    stats: { attack: 2, hp: 26, ability: 'Taunt' },
+    abilities: [
+      { key: 'rage', name: 'Rage', description: 'Move o inimigo uma casa para trás. Se bloqueado o movimento o inimigo recebe dano novamente.' }
     ]
   }
 ];
