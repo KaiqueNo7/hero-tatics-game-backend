@@ -108,7 +108,7 @@ function createGameListeners(socket, io) {
       clearHeroSelectionTimer(roomId);
       startTurnTimer(roomId, startedPlayerId);
       const enrichedPlayer1 = enrichPlayer(match.player1, ['B1', 'C1', 'D1'], HERO_DATA);
-      const enrichedPlayer2 = enrichPlayer(match.player2, ['B1', 'C6', 'D7'], HERO_DATA);
+      const enrichedPlayer2 = enrichPlayer(match.player2, ['B7', 'C6', 'D7'], HERO_DATA);
 
       const currentTurn = { attackedHeroes: [], counterAttack: false, movedHeroes: [], playerId: startedPlayerId, numberTurn: 1 };
       match.gameState = { roomId, players: [enrichedPlayer1, enrichedPlayer2], currentTurn, startedPlayerId, lastActionTimestamp: Date.now(), status: 'in_progress' };
@@ -261,6 +261,10 @@ function createGameListeners(socket, io) {
 
 io.on('connection', (socket) => {
   const gameListeners = createGameListeners(socket, io);
+
+  socket.on('ping_check', (callback) => {
+    callback();
+  });
 
   Object.entries(gameListeners).forEach(([event, handler]) => socket.on(event, handler));
 
