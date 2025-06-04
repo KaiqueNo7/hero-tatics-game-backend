@@ -62,6 +62,74 @@ const GAME_EVENTS = [
   SOCKET_EVENTS.RECONNECTING_PLAYER
 ];
 
+async function handleGameFinishedRequest({ roomId, winnerId, playerIds }, io) {
+  console.log(roomId, winnerId, playerIds);
+
+  try {
+    clearTurnTimer(roomId);
+
+    if (!winnerId || !Array.isArray(playerIds) || playerIds.length !== 2) {
+      console.error('Dados da partida inválidos recebidos via socket.');
+      return;
+    }
+
+    const [player1Id, player2Id] = playerIds;
+
+    const [player1Rows] = await db.query('SELECT xp, level, coins, wins, losses FROM players WHERE id = ?', [player1Id]);
+    const [player2Rows] = await db.query('SELECT xp, level, coins, wins, losses FROM players WHERE id = ?', [player2Id]);
+
+    if (player1Rows.length === 0 || player2Rows.length === 0) {
+      console.error('Um ou ambos os jogadores não foram encontrados no banco de dados.');
+      return;
+    }
+
+    const player1 = player1Rows[0];
+    const player2 = player2Rows[0];
+
+    const updatePlayerStats = async (playerId, isWinner, currentPlayer) => {
+      const earnedXp = isWinner ? 100 : 50;
+      const column = isWinner ? 'wins' : 'losses';
+      let newXp = currentPlayer.xp + earnedXp;
+      let newLevel = currentPlayer.level;
+      let newCoins = currentPlayer.coins;
+      const xpPerLevel = 500;
+
+      while (newXp >= newLevel * xpPerLevel) {
+        newXp -= newLevel * xpPerLevel;
+        newLevel += 1;
+        newCoins += 200;
+      }
+
+      await db.query(
+        `UPDATE players
+         SET ${column} = ${column} + 1,
+             xp = ?,
+             level = ?,
+             coins = ?
+         WHERE id = ?`,
+        [newXp, newLevel, newCoins, playerId]
+      );
+
+      return { xp: newXp, level: newLevel, coins: newCoins };
+    };
+
+    const player1NewStats = await updatePlayerStats(player1Id, winnerId === player1Id, player1);
+    const player2NewStats = await updatePlayerStats(player2Id, winnerId === player2Id, player2);
+
+    io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, {winnerId});
+
+    io.socketsLeave(roomId);
+    matches.delete(roomId);
+    goodLuckCache.delete(roomId);
+  } catch (err) {
+    console.error('Erro ao atualizar estatísticas da partida:', err);
+
+    io.socketsLeave(roomId);
+    matches.delete(roomId);
+    goodLuckCache.delete(roomId);
+  }
+}
+
 function removeGameListeners(socket, listeners) {
   GAME_EVENTS.forEach(event => {
     if (listeners[event]) {
@@ -174,79 +242,10 @@ function createGameListeners(socket, io) {
       io.to(roomId).emit(SOCKET_EVENTS.RECONNECTING_PLAYER_SUCCESS);
     },
 
-    [SOCKET_EVENTS.GAME_FINISHED_REQUEST]: async ({ roomId, winner, playerIds }) => {
-      try {
-        clearTurnTimer(roomId);
-    
-        if (!winner || !Array.isArray(playerIds) || playerIds.length !== 2) {
-          console.error('Dados da partida inválidos recebidos via socket.');
-          return;
-        }
-    
-        const [player1Id, player2Id] = playerIds;
-    
-        const [player1Rows] = await db.query('SELECT xp, level, coins, wins, losses FROM players WHERE id = ?', [player1Id]);
-        const [player2Rows] = await db.query('SELECT xp, level, coins, wins, losses FROM players WHERE id = ?', [player2Id]);
-    
-        if (player1Rows.length === 0 || player2Rows.length === 0) {
-          console.error('Um ou ambos os jogadores não foram encontrados no banco de dados.');
-          return;
-        }
-    
-        const player1 = player1Rows[0];
-        const player2 = player2Rows[0];
-    
-        const updatePlayerStats = async (playerId, isWinner, currentPlayer) => {
-          const earnedXp = isWinner ? 100 : 50;
-          const column = isWinner ? 'wins' : 'losses';
-          let newXp = currentPlayer.xp + earnedXp;
-          let newLevel = currentPlayer.level;
-          let newCoins = currentPlayer.coins;
-          const xpPerLevel = 500;
-    
-          while (newXp >= newLevel * xpPerLevel) {
-            newXp -= newLevel * xpPerLevel;
-            newLevel += 1;
-            newCoins += 200;
-          }
-    
-          await db.query(
-            `UPDATE players
-             SET ${column} = ${column} + 1,
-                 xp = ?,
-                 level = ?,
-                 coins = ?
-             WHERE id = ?`,
-            [newXp, newLevel, newCoins, playerId]
-          );
-    
-          return { xp: newXp, level: newLevel, coins: newCoins };
-        };
-    
-        const player1NewStats = await updatePlayerStats(player1Id, winner.id === player1Id, player1);
-        const player2NewStats = await updatePlayerStats(player2Id, winner.id === player2Id, player2);
-
-        console.log(`Estatísticas atualizadas para os jogadores: ${player1Id} e ${player2Id}`);
-        console.log(roomId);
-
-        io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, {
-            players: {
-              [player1Id]: player1NewStats,
-              [player2Id]: player2NewStats, 
-            },
-        });
-
-        io.socketsLeave(roomId);
-        matches.delete(roomId);
-        goodLuckCache.delete(roomId);
-      } catch (err) {
-        console.error('Erro ao atualizar estatísticas da partida:', err);
-
-        io.socketsLeave(roomId);
-        matches.delete(roomId);
-        goodLuckCache.delete(roomId);
-      }
+    [SOCKET_EVENTS.GAME_FINISHED_REQUEST]: async (data) => {
+      await handleGameFinishedRequest(data, io);
     },
+
     ['CHECK_GOOD_LUCK']: ({ roomId }) => {
       if (goodLuckCache.has(roomId)) {
         socket.emit('GOOD_LUCK_RESULT', goodLuckCache.get(roomId));
@@ -328,28 +327,18 @@ io.on('connection', (socket) => {
 
       if (match.gameState.status === 'in_progress') {
         io.to(roomId).emit(SOCKET_EVENTS.PLAYER_DISCONNECTED);
-        const opponentId = match.player1.id === playerId ? match.player2.id : match.player1.id;
-        const opponentDisconnected = disconnectedPlayers.has(opponentId);
 
-        if (opponentDisconnected) {
+        const timeout = setTimeout(async () => {
           const winner = match.gameState.players.find(p => p.id !== playerId);
-          io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, { winner });
+          const winnerId = winner.id;
+          const playerIds = match.gameState.players.map(player => player.id);
+
+          await handleGameFinishedRequest({ roomId, winnerId, playerIds }, io);
           io.socketsLeave(roomId);
           matches.delete(roomId);
           clearTurnTimer(roomId);
           disconnectedPlayers.delete(playerId);
-          disconnectedPlayers.delete(opponentId);
-          return;
-        }
-
-        const timeout = setTimeout(() => {
-          const winner = match.gameState.players.find(p => p.id !== playerId);
-          io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, { winner });
-          io.socketsLeave(roomId);
-          matches.delete(roomId);
-          clearTurnTimer(roomId);
-          disconnectedPlayers.delete(playerId);
-        }, 20000);
+        }, 1000);
 
         disconnectedPlayers.set(playerId, { socketId: socket.id, roomId, timeout });
       }
@@ -368,7 +357,6 @@ app.use(cors({
 app.use(express.json());
 app.use('/api', [routes]);
 
-// Health check endpoint for deployment monitoring
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Service is up and running' });
 });
