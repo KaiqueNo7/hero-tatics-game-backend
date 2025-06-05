@@ -1,5 +1,3 @@
-import { HERO_DATA } from "./models/heroes.js";
-
 let matches;
 let io;
 let SOCKET_EVENTS;

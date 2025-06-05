@@ -18,6 +18,8 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { HERO_DATA } from './models/heroes.js';
 import { db } from './models/db.js';
+
+import { validateHeroAttack } from './middleware/validateHeroAttack.js';
 dotenv.config();
 
 const matches = new Map();
@@ -138,7 +140,7 @@ function removeGameListeners(socket, listeners) {
   });
 }
 
-function createGameListeners(socket, io) {
+function createGameListeners(socket, io, ) {
   return {
     [SOCKET_EVENTS.HERO_SELECTED_REQUEST]: ({ roomId, heroName, player, step }) => {
       enqueue(roomId, async () => {
@@ -175,8 +177,8 @@ function createGameListeners(socket, io) {
     
       clearHeroSelectionTimer(roomId);
       startTurnTimer(roomId, startedPlayerId);
-      const enrichedPlayer1 = enrichPlayer(match.player1, ['B1', 'C1', 'D1'], HERO_DATA);
-      const enrichedPlayer2 = enrichPlayer(match.player2, ['B7', 'C6', 'D7'], HERO_DATA);
+      const enrichedPlayer1 = enrichPlayer(match.player1, ['B3', 'C3', 'D3'], HERO_DATA);
+      const enrichedPlayer2 = enrichPlayer(match.player2, ['B4', 'C4', 'D4'], HERO_DATA);
 
       const currentTurn = { attackedHeroes: [], counterAttack: false, movedHeroes: [], playerId: startedPlayerId, numberTurn: 1 };
       match.gameState = { roomId, players: [enrichedPlayer1, enrichedPlayer2], currentTurn, startedPlayerId, lastActionTimestamp: Date.now(), status: 'in_progress' };
@@ -206,6 +208,19 @@ function createGameListeners(socket, io) {
       enqueue(roomId, async () => {
         const match = getMatch(roomId);
         if (!match) return;
+
+        const result = validateHeroAttack({
+          match,
+          socket,
+          attackerId: heroAttackerId,
+          targetId: heroTargetId,
+        });
+
+        if (!result.valid) {
+          console.log(`Ataque inválido: ${result.reason}`);
+          return;
+        }
+        
         io.to(roomId).emit(SOCKET_EVENTS.HERO_ATTACKED, { heroAttackerId, heroTargetId });
       });
     },
@@ -213,6 +228,19 @@ function createGameListeners(socket, io) {
     [SOCKET_EVENTS.HERO_COUNTER_ATTACK_REQUEST]: ({ roomId, heroAttackerId, heroTargetId }) => {
       const match = getMatch(roomId);
       if (!match) return;
+
+      const result = validateHeroAttack({
+        match,
+        socket,
+        attackerId: heroAttackerId,
+        targetId: heroTargetId,
+      });
+
+      if (!result.valid) {
+        console.log(`Ataque inválido: ${result.reason}`);
+        return;
+      }
+
       socket.broadcast.to(roomId).emit(SOCKET_EVENTS.HERO_COUNTER_ATTACK, { heroAttackerId, heroTargetId });
     },
 
@@ -243,6 +271,13 @@ function createGameListeners(socket, io) {
     },
 
     [SOCKET_EVENTS.GAME_FINISHED_REQUEST]: async (data) => {
+      const { roomId, winnerId } = data;
+      const match = getMatch(roomId);
+      if (!match) return;
+
+      match.gameState.status = 'finished';
+      match.gameState.winnerId = winnerId
+
       await handleGameFinishedRequest(data, io);
     },
 
@@ -328,6 +363,8 @@ io.on('connection', (socket) => {
       if (match.gameState.status === 'in_progress') {
         io.to(roomId).emit(SOCKET_EVENTS.PLAYER_DISCONNECTED);
 
+        console.log(match.gameState.status);
+
         const timeout = setTimeout(async () => {
           const winner = match.gameState.players.find(p => p.id !== playerId);
           const winnerId = winner.id;
@@ -338,6 +375,7 @@ io.on('connection', (socket) => {
           matches.delete(roomId);
           clearTurnTimer(roomId);
           disconnectedPlayers.delete(playerId);
+          socket.removeAllListeners();
         }, 1000);
 
         disconnectedPlayers.set(playerId, { socketId: socket.id, roomId, timeout });
