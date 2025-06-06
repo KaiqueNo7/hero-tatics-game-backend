@@ -376,7 +376,7 @@ io.on('connection', (socket) => {
           clearTurnTimer(roomId);
           disconnectedPlayers.delete(playerId);
           socket.removeAllListeners();
-        }, 1000);
+        }, 20000);
 
         disconnectedPlayers.set(playerId, { socketId: socket.id, roomId, timeout });
       }

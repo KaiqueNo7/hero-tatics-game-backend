@@ -19,6 +19,17 @@ export function getMatch(roomId) {
   return matches.get(roomId);
 }
 
+export function getGameStateMatch(roomId) {
+  const match = matches.get(roomId);
+  const gameState = match.gameState;
+
+  if(!gameState){
+    console.log('Jogo sem estado!');
+  }
+
+  return gameState;
+}
+
 export function startTurnTimer(roomId, playerId) {
   clearTurnTimer(roomId);
 
