@@ -69,6 +69,7 @@ async function handleGameFinishedRequest({ roomId, winnerId, playerIds }, io) {
 
   try {
     clearTurnTimer(roomId);
+    console.log(roomId);
 
     if (!winnerId || !Array.isArray(playerIds) || playerIds.length !== 2) {
       console.error('Dados da partida inválidos recebidos via socket.');
@@ -228,18 +229,6 @@ function createGameListeners(socket, io, ) {
     [SOCKET_EVENTS.HERO_COUNTER_ATTACK_REQUEST]: ({ roomId, heroAttackerId, heroTargetId }) => {
       const match = getMatch(roomId);
       if (!match) return;
-
-      const result = validateHeroAttack({
-        match,
-        socket,
-        attackerId: heroAttackerId,
-        targetId: heroTargetId,
-      });
-
-      if (!result.valid) {
-        console.log(`Ataque inválido: ${result.reason}`);
-        return;
-      }
 
       socket.broadcast.to(roomId).emit(SOCKET_EVENTS.HERO_COUNTER_ATTACK, { heroAttackerId, heroTargetId });
     },
