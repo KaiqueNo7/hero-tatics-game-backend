@@ -69,6 +69,8 @@ async function handleGameFinishedRequest({ roomId, winnerId, playerIds }, io) {
   if (matchDataProcessed.has(roomId)) return;
   matchDataProcessed.set(roomId, { processed: true });
 
+  const isBot = (id) => typeof id === 'string' && id.startsWith('BOT_');
+
   try {
     clearTurnTimer(roomId);
 
@@ -79,11 +81,21 @@ async function handleGameFinishedRequest({ roomId, winnerId, playerIds }, io) {
 
     const [player1Id, player2Id] = playerIds;
 
-    const [player1Rows] = await db.query('SELECT xp, level, coins, wins, losses FROM players WHERE id = ?', [player1Id]);
-    const [player2Rows] = await db.query('SELECT xp, level, coins, wins, losses FROM players WHERE id = ?', [player2Id]);
+    const [player1Rows] = isBot(player1Id)
+      ? [[]]
+      : await db.query('SELECT xp, level, coins, wins, losses FROM players WHERE id = ?', [player1Id]);
 
-    if (player1Rows.length === 0 || player2Rows.length === 0) {
-      console.error('Um ou ambos os jogadores não foram encontrados no banco de dados.');
+    const [player2Rows] = isBot(player2Id)
+      ? [[]]
+      : await db.query('SELECT xp, level, coins, wins, losses FROM players WHERE id = ?', [player2Id]);
+
+    if (!isBot(player1Id) && player1Rows.length === 0) {
+      console.error('Jogador 1 não encontrado no banco de dados.');
+      return;
+    }
+
+    if (!isBot(player2Id) && player2Rows.length === 0) {
+      console.error('Jogador 2 não encontrado no banco de dados.');
       return;
     }
 
@@ -117,10 +129,15 @@ async function handleGameFinishedRequest({ roomId, winnerId, playerIds }, io) {
       return { xp: newXp, level: newLevel, coins: newCoins };
     };
 
-    const player1NewStats = await updatePlayerStats(player1Id, winnerId === player1Id, player1);
-    const player2NewStats = await updatePlayerStats(player2Id, winnerId === player2Id, player2);
+    if (!isBot(player1Id)) {
+      await updatePlayerStats(player1Id, winnerId === player1Id, player1);
+    }
 
-    io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, {winnerId});
+    if (!isBot(player2Id)) {
+      await updatePlayerStats(player2Id, winnerId === player2Id, player2);
+    }
+
+    io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, { winnerId });
 
     io.socketsLeave(roomId);
     matches.delete(roomId);
@@ -128,6 +145,8 @@ async function handleGameFinishedRequest({ roomId, winnerId, playerIds }, io) {
     goodLuckCache.delete(roomId);
   } catch (err) {
     console.error('Erro ao atualizar estatísticas da partida:', err);
+
+    io.to(roomId).emit(SOCKET_EVENTS.GAME_FINISHED, { winnerId });
 
     io.socketsLeave(roomId);
     matches.delete(roomId);
@@ -188,7 +207,6 @@ export function handleHeroSelection({ roomId, heroName, player }) {
     if (!match || match.gameState.status !== 'selecting_heroes') return;
     if (match.selectedHeroes.includes(heroName)) return;
 
-    // Adiciona o herói escolhido
     match.selectedHeroes.push(heroName);
 
     io.to(roomId).emit(SOCKET_EVENTS.HERO_SELECTED, {
@@ -197,7 +215,6 @@ export function handleHeroSelection({ roomId, heroName, player }) {
       step: match.currentStep
     });
 
-    // Avança o controle de seleção
     const current = match.selectionOrder[match.currentStep];
     match.currentStepCount++;
 
@@ -223,11 +240,6 @@ export function handleHeroSelection({ roomId, heroName, player }) {
     const playerSocketId = nextPlayer === 1 ? match.player1.id : match.player2.id;
     clearHeroSelectionTimer(roomId);
     startHeroSelectionTimer(roomId, playerSocketId, match.currentStep);
-
-    const isBot = match[`player${nextPlayer}`].isBot;
-    if (isBot) {
-      chooseHero(roomId, nextPlayer);
-    }
   });
 }
 
@@ -252,8 +264,8 @@ function createGameListeners(socket, io, ) {
     
       clearHeroSelectionTimer(roomId);
       startTurnTimer(roomId, startedPlayerId);
-      const enrichedPlayer1 = enrichPlayer(match.player1, ['B3', 'C3', 'D3'], HERO_DATA);
-      const enrichedPlayer2 = enrichPlayer(match.player2, ['B4', 'C4', 'D4'], HERO_DATA);
+      const enrichedPlayer1 = enrichPlayer(match.player1, ['B1', 'C1', 'D1'], HERO_DATA);
+      const enrichedPlayer2 = enrichPlayer(match.player2, ['B7', 'C6', 'D7'], HERO_DATA);
 
       const currentTurn = { attackedHeroes: [], counterAttack: false, movedHeroes: [], playerId: startedPlayerId, numberTurn: 1 };
       match.gameState = { roomId, players: [enrichedPlayer1, enrichedPlayer2], currentTurn, startedPlayerId, lastActionTimestamp: Date.now(), status: 'in_progress' };
@@ -375,7 +387,7 @@ io.on('connection', (socket) => {
         waitingQueue.delete(player.id);
         createBotMatch(p1, socket);
       }
-    }, 1000); // Espera 5 segundos
+    }, 20000);
 
     socket.playerId = player.id;
     playerIdToSocketId.set(player.id, socket.id);
@@ -451,8 +463,6 @@ io.on('connection', (socket) => {
 
       if (match.gameState.status === 'in_progress') {
         io.to(roomId).emit(SOCKET_EVENTS.PLAYER_DISCONNECTED);
-
-        console.log(match.gameState.status);
 
         const timeout = setTimeout(async () => {
           const winner = match.gameState.players.find(p => p.id !== playerId);
