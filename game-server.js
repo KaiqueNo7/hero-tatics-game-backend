@@ -22,11 +22,12 @@ import { db } from './models/db.js';
 import { validateHeroAttack } from './middleware/validateHeroAttack.js';
 dotenv.config();
 
-const matches = new Map();
+export const matches = new Map();
 const waitingQueue = new Map();
 const goodLuckCache = new Map();
 const disconnectedPlayers = new Map();
 const playerIdToSocketId = new Map();
+const matchDataProcessed = new Map();
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'segredo_forte';
@@ -65,11 +66,11 @@ const GAME_EVENTS = [
 ];
 
 async function handleGameFinishedRequest({ roomId, winnerId, playerIds }, io) {
-  console.log(roomId, winnerId, playerIds);
+  if (matchDataProcessed.has(roomId)) return;
+  matchDataProcessed.set(roomId, { processed: true });
 
   try {
     clearTurnTimer(roomId);
-    console.log(roomId);
 
     if (!winnerId || !Array.isArray(playerIds) || playerIds.length !== 2) {
       console.error('Dados da partida inválidos recebidos via socket.');
@@ -123,12 +124,14 @@ async function handleGameFinishedRequest({ roomId, winnerId, playerIds }, io) {
 
     io.socketsLeave(roomId);
     matches.delete(roomId);
+    matchDataProcessed.delete(matchDataProcessed);
     goodLuckCache.delete(roomId);
   } catch (err) {
     console.error('Erro ao atualizar estatísticas da partida:', err);
 
     io.socketsLeave(roomId);
     matches.delete(roomId);
+    matchDataProcessed.delete(matchDataProcessed);
     goodLuckCache.delete(roomId);
   }
 }
@@ -141,27 +144,98 @@ function removeGameListeners(socket, listeners) {
   });
 }
 
+function createBotMatch(player, sock) {
+  const roomId = `room_${player.id}_bot_${Date.now()}`;
+  sock.join(roomId);
+
+  const bot = {
+    id: 'BOT_' + Math.floor(Math.random() * 10000),
+    name: 'Bot Alpha',
+    isBot: true,
+    heroes: [],
+  };
+
+  const match = {
+    player1: { ...player },
+    player2: bot,
+    selectedHeroes: [],
+    gameState: { status: 'selecting_heroes', players: [player, bot] },
+    isBotMatch: true,
+    selectionOrder: [
+      { count: 1, player: 1 },
+      { count: 2, player: 2 },
+      { count: 2, player: 1 },
+      { count: 1, player: 2 } 
+    ],
+    currentStep: 0,
+    currentStepCount: 0,
+  };
+
+  matches.set(roomId, match);
+
+  sock.emit(SOCKET_EVENTS.MATCH_FOUND, {
+    players: [match.player1, match.player2],
+    roomId,
+  });
+
+  startHeroSelectionTimer(roomId, player.id, 0);
+}
+
+export function handleHeroSelection({ roomId, heroName, player }) {
+  enqueue(roomId, async () => {
+    const match = matches.get(roomId);
+
+    if (!match || match.gameState.status !== 'selecting_heroes') return;
+    if (match.selectedHeroes.includes(heroName)) return;
+
+    // Adiciona o herói escolhido
+    match.selectedHeroes.push(heroName);
+
+    io.to(roomId).emit(SOCKET_EVENTS.HERO_SELECTED, {
+      heroName,
+      player,
+      step: match.currentStep
+    });
+
+    // Avança o controle de seleção
+    const current = match.selectionOrder[match.currentStep];
+    match.currentStepCount++;
+
+    if (match.currentStepCount >= current.count) {
+      match.currentStep++;
+      match.currentStepCount = 0;
+    }
+
+    const nextStep = match.selectionOrder[match.currentStep];
+
+    if (!nextStep) {
+      clearHeroSelectionTimer(roomId);
+      return;
+    }
+
+    const nextPlayer = nextStep.player;
+
+    io.to(roomId).emit(SOCKET_EVENTS.STEP_UPDATED, {
+      currentStep: match.currentStep,
+      currentPlayer: nextPlayer
+    });
+
+    const playerSocketId = nextPlayer === 1 ? match.player1.id : match.player2.id;
+    clearHeroSelectionTimer(roomId);
+    startHeroSelectionTimer(roomId, playerSocketId, match.currentStep);
+
+    const isBot = match[`player${nextPlayer}`].isBot;
+    if (isBot) {
+      chooseHero(roomId, nextPlayer);
+    }
+  });
+}
+
 function createGameListeners(socket, io, ) {
   return {
     [SOCKET_EVENTS.HERO_SELECTED_REQUEST]: ({ roomId, heroName, player, step }) => {
       enqueue(roomId, async () => {
-        const match = matches.get(roomId);
-        
-        if (!match || match.gameState.status !== 'selecting_heroes'){
-          console.log('Match not found or not in hero selection state:', roomId);
-          return;
-        }
-
-        if (match.selectedHeroes.includes(heroName)){
-          console.log('Hero already selected:', heroName);
-          return;
-        }
-          
-        match.selectedHeroes.push(heroName);
-        io.to(roomId).emit(SOCKET_EVENTS.HERO_SELECTED, { heroName, player, step });
-        const nextPlayer = player === 1 ? 2 : 1;
-        clearHeroSelectionTimer(roomId);
-        startHeroSelectionTimer(roomId, nextPlayer, step);
+        handleHeroSelection({roomId, heroName, player, step});
       });
     },
 
@@ -293,12 +367,16 @@ io.on('connection', (socket) => {
 
   socket.on(SOCKET_EVENTS.FINDING_MATCH, ({ player }) => {
     if (!player) return;
+
     setTimeout(() => {
       if (waitingQueue.has(player.id)) {
+        console.log(`[MATCHMAKING] Jogador ${player.id} esperou muito. Criando partida com bot.`);
+        const p1 = waitingQueue.get(player.id);
         waitingQueue.delete(player.id);
-        socket.emit(SOCKET_EVENTS.QUIT_QUEUE);
+        createBotMatch(p1, socket);
       }
-    }, 30000);
+    }, 1000); // Espera 5 segundos
+
     socket.playerId = player.id;
     playerIdToSocketId.set(player.id, socket.id);
     const safeName = (player.name || '').trim().substring(0, 20) || `Jogador_${Math.floor(Math.random() * 1000)}`;
@@ -306,19 +384,41 @@ io.on('connection', (socket) => {
     waitingQueue.set(player.id, { id: player.id, name: safeName, heroes: [] });
     if (waitingQueue.size >= 2) {
       const iterator = waitingQueue.entries();
+
       const [playerId1, p1] = iterator.next().value;
       waitingQueue.delete(playerId1);
       const [playerId2, p2] = iterator.next().value;
       waitingQueue.delete(playerId2);
+
       const sock1 = io.sockets.sockets.get(playerIdToSocketId.get(playerId1));
       const sock2 = io.sockets.sockets.get(playerIdToSocketId.get(playerId2));
+
       if (!sock1 || !sock2) return;
       const roomId = `room_${playerId1}_${playerId2}_${Date.now()}`;
-      console.log(roomId);
+
       sock1.join(roomId);
       sock2.join(roomId);
-      const match = { player1: { ...p1, id: playerId1 }, player2: { ...p2, id: playerId2 }, selectedHeroes: [], gameState: { status: 'selecting_heroes' } };
+
+      const match = { 
+        player1: { ...p1, id: playerId1 }, 
+        player2: { ...p2, id: playerId2 }, 
+        selectedHeroes: [], 
+        gameState: { 
+          status: 'selecting_heroes',
+          players: [player1, player2] 
+        },
+        isBotMatch: false,
+        selectionOrder: [
+          { count: 1, player: 1 },
+          { count: 2, player: 2 },
+          { count: 2, player: 1 },
+          { count: 1, player: 2 } 
+        ],
+        currentStep: 0,
+        currentStepCount: 0,
+      };
       matches.set(roomId, match);
+
       io.to(roomId).emit(SOCKET_EVENTS.MATCH_FOUND, { players: [match.player1, match.player2], roomId });
       startHeroSelectionTimer(roomId, match.player1, 0);
     }

@@ -1,3 +1,5 @@
+import { chooseHero } from './controllers/botController.js';
+
 let matches;
 let io;
 let SOCKET_EVENTS;
@@ -59,6 +61,18 @@ export function clearTurnTimer(roomId) {
 
 export function startHeroSelectionTimer(roomId, currentPlayerId, currentStep) {
   clearHeroSelectionTimer(roomId);
+
+  const match = matches.get(roomId);
+  if (!match) return;
+
+  const currentPlayer = match.gameState.players.find((p) => p.id === currentPlayerId);
+  console.log(currentPlayer, currentStep);
+
+  if (currentPlayer.isBot == true) {
+    console.log(`[BOT] É a vez do bot escolher herói`);
+    chooseHero(roomId, currentPlayerId, currentStep);
+    return;
+  }
 
   let timeLeft = SELECTION_STEP_DURATION;
 
