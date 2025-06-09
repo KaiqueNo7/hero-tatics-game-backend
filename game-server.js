@@ -411,9 +411,12 @@ io.on('connection', (socket) => {
       sock1.join(roomId);
       sock2.join(roomId);
 
+      const player1 = { ...p1, id: playerId1, isBot: false };
+      const player2 = { ...p2, id: playerId2, isBot: false };
+
       const match = { 
-        player1: { ...p1, id: playerId1 }, 
-        player2: { ...p2, id: playerId2 }, 
+        player1: player1, 
+        player2: player2, 
         selectedHeroes: [], 
         gameState: { 
           status: 'selecting_heroes',
@@ -432,7 +435,7 @@ io.on('connection', (socket) => {
       matches.set(roomId, match);
 
       io.to(roomId).emit(SOCKET_EVENTS.MATCH_FOUND, { players: [match.player1, match.player2], roomId });
-      startHeroSelectionTimer(roomId, match.player1, 0);
+      startHeroSelectionTimer(roomId, match.player1.id, 0);
     }
   });
 
