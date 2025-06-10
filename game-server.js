@@ -28,6 +28,7 @@ const goodLuckCache = new Map();
 const disconnectedPlayers = new Map();
 const playerIdToSocketId = new Map();
 const matchDataProcessed = new Map();
+const playerTimeouts = new Map();
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'segredo_forte';
@@ -163,17 +164,22 @@ function removeGameListeners(socket, listeners) {
   });
 }
 
+function generateBotPlayer() {
+  const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Omega', 'Zeta', 'Echo', 'Nova'];
+  const name = `${botNames[Math.floor(Math.random() * botNames.length)]}`;
+  return {
+    id: 'BOT_' + Math.floor(Math.random() * 10000),
+    name,
+    isBot: true,
+    heroes: [],
+  };
+}
+
 function createBotMatch(player, sock) {
   const roomId = `room_${player.id}_bot_${Date.now()}`;
   sock.join(roomId);
 
-  const bot = {
-    id: 'BOT_' + Math.floor(Math.random() * 10000),
-    name: 'Bot Alpha',
-    isBot: true,
-    heroes: [],
-  };
-
+  const bot = generateBotPlayer();
   const match = {
     player1: { ...player },
     player2: bot,
@@ -380,18 +386,23 @@ io.on('connection', (socket) => {
   socket.on(SOCKET_EVENTS.FINDING_MATCH, ({ player }) => {
     if (!player) return;
 
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       if (waitingQueue.has(player.id)) {
         console.log(`[MATCHMAKING] Jogador ${player.id} esperou muito. Criando partida com bot.`);
         const p1 = waitingQueue.get(player.id);
         waitingQueue.delete(player.id);
+        playerTimeouts.delete(player.id);
         createBotMatch(p1, socket);
       }
     }, 20000);
 
+    playerTimeouts.set(player.id, timeout);
+
     socket.playerId = player.id;
     playerIdToSocketId.set(player.id, socket.id);
+
     const safeName = (player.name || '').trim().substring(0, 20) || `Jogador_${Math.floor(Math.random() * 1000)}`;
+
     if (waitingQueue.has(player.id)) return;
     waitingQueue.set(player.id, { id: player.id, name: safeName, heroes: [] });
     if (waitingQueue.size >= 2) {
@@ -399,8 +410,15 @@ io.on('connection', (socket) => {
 
       const [playerId1, p1] = iterator.next().value;
       waitingQueue.delete(playerId1);
+
+      clearTimeout(playerTimeouts.get(playerId1));
+      playerTimeouts.delete(playerId1);
+
       const [playerId2, p2] = iterator.next().value;
       waitingQueue.delete(playerId2);
+
+      clearTimeout(playerTimeouts.get(playerId2));
+      playerTimeouts.delete(playerId2);
 
       const sock1 = io.sockets.sockets.get(playerIdToSocketId.get(playerId1));
       const sock2 = io.sockets.sockets.get(playerIdToSocketId.get(playerId2));
@@ -448,6 +466,8 @@ io.on('connection', (socket) => {
     if (!socket.playerId) return;
     const playerId = socket.playerId;
     waitingQueue.delete(playerId);
+    clearTimeout(playerTimeouts.get(playerId));
+    playerTimeouts.delete(playerId);
     playerIdToSocketId.delete(playerId);
     
     for (const [roomId, match] of matches.entries()) {
