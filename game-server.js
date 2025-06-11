@@ -394,7 +394,7 @@ io.on('connection', (socket) => {
         playerTimeouts.delete(player.id);
         createBotMatch(p1, socket);
       }
-    }, 20000);
+    }, 10000);
 
     playerTimeouts.set(player.id, timeout);
 
